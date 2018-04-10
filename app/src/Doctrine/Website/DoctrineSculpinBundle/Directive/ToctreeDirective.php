@@ -3,6 +3,7 @@
 namespace Doctrine\Website\DoctrineSculpinBundle\Directive;
 
 use Gregwar\RST\Directive;
+use Gregwar\RST\Environment;
 use Gregwar\RST\Parser;
 
 class ToctreeDirective extends Directive
@@ -23,8 +24,7 @@ class ToctreeDirective extends Directive
             $file = trim($file);
 
             if (isset($options['glob']) && strpos($file, '*') !== false) {
-
-                $currentDirPath = rtrim($environment->absoluteRelativePath(''), '/');
+                $currentDirPath = realpath(rtrim($environment->absoluteRelativePath(''), '/'));
                 $rootPath = rtrim(str_replace($environment->getDirName(), '', $currentDirPath), '/');
 
                 $findPath = $rootPath.'/'.$file;
@@ -36,14 +36,18 @@ class ToctreeDirective extends Directive
                         continue;
                     }
 
-                    $f = str_replace($currentDirPath.'/', '', $f);
+                    $f = str_replace($rootPath.'/', '', $f);
                     $f = str_replace('.rst', '', $f);
+
+                    $f = $this->getReferencedFile($environment, $f);
 
                     $environment->addDependency($f);
                     $files[] = $f;
                 }
 
             } elseif ($file) {
+                $file = $this->getReferencedFile($environment, $file);
+
                 $environment->addDependency($file);
                 $files[] = $file;
             }
@@ -77,5 +81,25 @@ class ToctreeDirective extends Directive
         }
 
         return $allFiles;
+    }
+
+    private function getReferencedFile(Environment $environment, string $file)
+    {
+        $url = $environment->getUrl();
+
+        $e = explode('/', $url);
+
+        if (count($e) > 1) {
+            unset($e[count($e) - 1]);
+            $folderPath = implode('/', $e).'/';
+
+            if (strpos($file, $folderPath) !== false) {
+                $file = str_replace($folderPath, '', $file);
+            } else {
+                $file = str_repeat('../', count($e)).$file;
+            }
+        }
+
+        return $file;
     }
 }
